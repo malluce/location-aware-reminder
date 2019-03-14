@@ -19,6 +19,10 @@ class WearableConnector {
   }
 
   void vibrate() {
+
+    _flutterBlue.isOn.then((on) {
+      debugPrint("is on: " + on.toString());
+    });
     debugPrint("in vibrate");
     connectWriteAndBail([0xFF,0xFF,0xFF,0xFF]);
   }

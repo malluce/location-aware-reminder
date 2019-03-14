@@ -17,9 +17,6 @@ import 'package:location/location.dart';
 // for await, futures etc.
 import 'dart:async';
 
-// BLE for wearable
-import 'package:flutter_blue/flutter_blue.dart';
-
 import 'main.dart';
 import 'reminder.dart';
 
@@ -62,7 +59,7 @@ class _ReminderMapState extends State<ReminderMap> {
 
   @override
   void initState() {
-    print("initing debug state");
+    print("initing map state");
     super.initState();
 
     _location = Location();
@@ -92,6 +89,11 @@ class _ReminderMapState extends State<ReminderMap> {
   void deactivate() {
     super.deactivate();
     print("deactivating map state");
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
     _subscription.cancel();
   }
 
@@ -99,8 +101,7 @@ class _ReminderMapState extends State<ReminderMap> {
   /// Updates the location based on the current key-value-pairs output by Location class.
   ///
   void updateLocation(Map<String, double> currentLocation) {
-
-    if(!this.mounted) {
+    if (!this.mounted) {
       return;
     }
     // update variables
@@ -162,12 +163,13 @@ class _ReminderMapState extends State<ReminderMap> {
         _latitude.toString() +
         ",lon=" +
         _longitude.toString());
+
     List<Marker> markers = [];
     List<CircleMarker> circles = [];
     // reminder markers
     for (Reminder reminder in state.reminders) {
-      markers.add(buildMarker(reminder.toLatLng(), reminder.icon));
       circles.add(buildCircleMarker(reminder.toLatLng(), reminder.radius));
+      markers.add(buildMarker(reminder.toLatLng(), reminder.icon));
     }
     // current location marker
     markers.add(buildMarker(
@@ -181,6 +183,7 @@ class _ReminderMapState extends State<ReminderMap> {
       options: MapOptions(
         center: LatLng(_latitude, _longitude),
         zoom: 13.0,
+        onPositionChanged: (pos, b) => debugPrint("new position: " + pos.toString())
       ),
       layers: [
         TileLayerOptions(

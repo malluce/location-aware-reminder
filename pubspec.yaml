@@ -23,6 +23,7 @@ dependencies:
   path_provider: ^0.4.1
   location: ^1.4.1
   latlong: ^0.6.1
+  system_setting: ^0.1.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

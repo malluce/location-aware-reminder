@@ -10,6 +10,9 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:flutter_blue/flutter_blue.dart';
+import 'package:system_setting/system_setting.dart';
+
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -80,7 +83,7 @@ class ReminderStorage {
   }
 }
 
-class LAReState extends State<LARe> {
+class LAReState extends State<LARe>{
   // the reminder list
   List<Reminder> _reminders = [
     new Reminder(
@@ -100,6 +103,8 @@ class LAReState extends State<LARe> {
   ];
 
   ReminderStorage storage = ReminderStorage();
+
+  bool bluetoothAlertOpen = false;
 
   WearableConnector connector = WearableConnector();
 
@@ -124,7 +129,6 @@ class LAReState extends State<LARe> {
   @override
   void initState() {
     super.initState();
-
     // first, load reminders from disk
     loadRemindersFromDisk().then((List<Reminder> r) {
       setState(() {
@@ -154,21 +158,62 @@ class LAReState extends State<LARe> {
   }
 
   @override
-  void deactivate() {
-    super.deactivate();
+  void dispose() {
+    super.dispose();
     connector.cancelConnection();
   }
 
   @override
   Widget build(BuildContext context) {
     debugPrint(_reminders.toString());
+    Future.delayed(Duration.zero, () {
+      debugPrint("getting called");
+      FlutterBlue.instance.isOn.then((on) {
+        if (!on && !bluetoothAlertOpen) {
+          bluetoothAlertOpen = true;
+          debugPrint("is set open");
+          showDialog(
+              context: context,
+              builder: (context) {
+                return SimpleDialog(
+                    title:
+                        Text("Active Bluetooth for LARe to function properly."),
+                    children: <Widget>[
+                      Row(
+                        children: [
+                          FlatButton(
+                            onPressed: () {
+                              SystemSetting.goto(SettingTarget.BLUETOOTH);
+                            },
+                            child: Text(
+                              "goto settings",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            color: Colors.blue,
+                          ),
+                          FlatButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                bluetoothAlertOpen = false;
+                              },
+                              child: Text("done",
+                                  style: TextStyle(color: Colors.white)), color: Colors.blue,)
+                        ],
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      )
+                    ]);
+              });
+        }
+      });
+    });
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         resizeToAvoidBottomPadding: false,
-        floatingActionButton: AddReminderButton(
+        floatingActionButton: Container(
+            child: AddReminderButton(
           state: this,
-        ),
+        )),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         appBar: AppBar(
           title: Text("Location-Aware Reminder (LARe)"),

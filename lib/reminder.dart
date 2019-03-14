@@ -17,7 +17,8 @@ class Reminder {
   // GPS coordinates
   double lat;
   double lon;
-  double radius; // the radius in which the user should be reminded of this reminder
+  double
+      radius; // the radius in which the user should be reminded of this reminder
   Icon icon; // the icon of this reminder
 
   /// convenience method to convert this reminder to LatLng.
@@ -44,6 +45,7 @@ class Reminder {
     radius = json['radius'];
     icon = Icon(IconData(
       json['icon'],
+      fontFamily: 'MaterialIcons',
     ));
   }
 
@@ -54,7 +56,7 @@ class Reminder {
       'lat': lat,
       'lon': lon,
       'radius': radius,
-      'icon': icon.icon.codePoint,
+      'icon': icon.icon.codePoint
     };
   }
 
@@ -70,6 +72,7 @@ class Reminder {
                 Text(title),
                 icon,
               ],
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
             ),
             content: SingleChildScrollView(
               child: ListBody(
@@ -110,15 +113,27 @@ class ReminderList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return ListView.separated(
       itemBuilder: (BuildContext context, int index) {
         Reminder reminder = state.reminders[index];
         return ListTile(
-          title: Center(
-              child: Text(
-            reminder.title,
-            style: _listItemStyle,
-          )),
+          title: Row(
+            children: [
+              reminder.icon,
+              Center(
+                child: Text(
+                  reminder.title,
+                  style: _listItemStyle,
+                ),
+              ),
+              //Container(
+              //  width: 32.0,
+              //  height: 0.0,
+              //)
+            ],
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ),
           onTap: () => reminder.showSummary(context),
           onLongPress: () => showDialog(
                 context: context,
@@ -185,7 +200,7 @@ class AddReminderButton extends StatelessWidget {
     debugPrint("addReminderButton: " + state.reminders.toString());
     return FloatingActionButton(
         onPressed: () => openAddReminderRoute(context, state),
-        child: Icon(Icons.add));
+        child: Icon(Icons.alarm_add));
   }
 }
 
@@ -245,7 +260,6 @@ class _AddReminderFormState extends State<AddReminderForm> {
   double _radius = 0;
   Icon _icon;
 
-
   // list of icons which can be used for reminders
   List<Icon> _icons = [
     Icons.access_alarm,
@@ -255,7 +269,6 @@ class _AddReminderFormState extends State<AddReminderForm> {
     Icons.wc,
     Icons.school
   ].map((f) => Icon(f)).toList();
-
 
   @override
   void initState() {
@@ -367,6 +380,8 @@ class _AddReminderFormState extends State<AddReminderForm> {
             }).toList(),
             onChanged: (Icon icon) {
               setState(() {
+                debugPrint("setting icon, codepoint:" +
+                    icon.icon.codePoint.toString());
                 _icon = icon;
               });
             },

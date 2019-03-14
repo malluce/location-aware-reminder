@@ -21,6 +21,7 @@ class _DebugState extends State<Debug> {
 
   @override
   Widget build(BuildContext context) {
+
     return Row(children: <Widget>[
         FlatButton(onPressed: state.startVibrate, child: Text("Good vibrations")),
         FlatButton(onPressed: state.stopVibrate, child: Text("Stawp it")),
