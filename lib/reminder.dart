@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'main.dart';
 import 'package:latlong/latlong.dart';
 
+// for map displaying
+import 'package:flutter_map/flutter_map.dart';
+
+// for GPS info
+import 'package:location/location.dart';
+
 ///
 /// Representation of the reminders.
 ///
@@ -113,7 +119,6 @@ class ReminderList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return ListView.separated(
       itemBuilder: (BuildContext context, int index) {
         Reminder reminder = state.reminders[index];
@@ -214,6 +219,119 @@ void openAddReminderRoute(BuildContext context, LAReState state) {
               )));
 }
 
+class LonLatMapChooserRoute extends StatelessWidget {
+  final LAReState state;
+  final LatLngToVoidCallback callback;
+
+  LonLatMapChooserRoute({this.state, this.callback});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Choose the reminder location.")),
+      body: Container(
+        child: LonLatMapChooser(
+          state: state,
+          callback: callback,
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(onPressed: null),
+    );
+  }
+}
+
+typedef LatLngToVoidCallback = void Function(LatLng);
+
+class LonLatMapChooser extends StatefulWidget {
+  final LAReState state;
+  final LatLngToVoidCallback callback;
+
+  LonLatMapChooser({this.state, this.callback});
+
+  @override
+  State<StatefulWidget> createState() {
+    return LonLatMapChooserState(state: state, callback: callback);
+  }
+}
+
+class LonLatMapChooserState extends State<LonLatMapChooser> {
+  LAReState state;
+  LatLngToVoidCallback callback;
+
+  LonLatMapChooserState({this.state, this.callback});
+
+  double _currentLat;
+  double _currentLon;
+
+  bool first = true;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _currentLon = state.longitude;
+    _currentLat = state.latitude;
+  }
+
+  void _updateChosenLocation(LatLng newLatLng) {
+    setState(() {
+      _currentLat = newLatLng.latitude;
+      _currentLon = newLatLng.longitude;
+    });
+  }
+
+  @override
+  void deactivate() {
+    // TODO: implement deactivate
+    debugPrint("deactivating");
+    super.deactivate();
+    callback(LatLng(_currentLat, _currentLon));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FlutterMap(
+      options: MapOptions(
+          center: LatLng(_currentLat, _currentLon),
+          zoom: 13.0,
+          onPositionChanged: (pos, b) {
+            debugPrint("new position: " + pos.center.toString());
+            if (!first) {
+              _updateChosenLocation(pos.center);
+            }
+            first = false;
+          }),
+      layers: [
+        TileLayerOptions(
+          urlTemplate: "https://api.tiles.mapbox.com/v4/"
+              "{id}/{z}/{x}/{y}@2x.png?access_token={accessToken}",
+          additionalOptions: {
+            'accessToken':
+                'pk.eyJ1IjoibWFsbHVjZSIsImEiOiJjanF6MmNqeTIwNmppNDJwbHprOGhuaXo1In0.K_3lEcDSPALLWJPO-on54g',
+            'id': 'mapbox.streets',
+          },
+        ),
+        MarkerLayerOptions(
+          markers: [
+            Marker(
+              point: LatLng(_currentLat, _currentLon),
+              width: 80.0,
+              height: 80.0,
+              builder: (ctx) => Container(
+                    child: IconButton(
+                      iconSize: 40.0,
+                      icon: Icon(Icons.add_location),
+                      onPressed: () => debugPrint("pressed!"),
+                    ),
+                  ),
+            ),
+          ],
+        )
+      ],
+    );
+  }
+}
+
 /// Route which displays the AddReminderForm to add reminders.
 class AddReminderRoute extends StatelessWidget {
   final LAReState state;
@@ -253,10 +371,14 @@ class _AddReminderFormState extends State<AddReminderForm> {
   final LAReState state;
   final _formKey = GlobalKey<FormState>();
 
+  FormField _lonLat;
+  TextEditingController _lonController = TextEditingController(text: "");
+  TextEditingController _latController = TextEditingController(text: "");
+
   // current values of the form
   String _name = "";
-  double _lat = 0;
-  double _lon = 0;
+  double _lat;
+  double _lon;
   double _radius = 0;
   Icon _icon;
 
@@ -305,6 +427,16 @@ class _AddReminderFormState extends State<AddReminderForm> {
     }
   }
 
+  void _openMapRoute() {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => LonLatMapChooserRoute(
+                  state: state,
+                  callback: setLatLng,
+                )));
+  }
+
   /// Checks if the String is a valid longitude.
   String _validateLongitude(String value) {
     return _validateWithinBounds(value, -180, 180, "longitude");
@@ -329,6 +461,16 @@ class _AddReminderFormState extends State<AddReminderForm> {
     }
   }
 
+  void setLatLng(LatLng toSet) {
+    debugPrint("setting lat lon:" + toSet.toString());
+    setState(() {
+      _lat = toSet.latitude;
+      _lon = toSet.longitude;
+      _latController.text = toSet.latitude.toString();
+      _lonController.text = toSet.longitude.toString();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     TextFormField name = TextFormField(
@@ -340,21 +482,32 @@ class _AddReminderFormState extends State<AddReminderForm> {
         });
       },
     );
-    TextFormField lon = TextFormField(
-      decoration: InputDecoration(labelText: "Longitude"),
-      validator: _validateLongitude,
-      onSaved: (String value) {
-        setState(() {
-          _lon = double.parse(value);
-        });
+    _lonLat = FormField(
+      key: GlobalKey(),
+      builder: (FormFieldState state) {
+        return FlatButton(
+          child: Text("choose on map"),
+          onPressed: () => _openMapRoute(),
+        );
       },
     );
-    TextFormField lat = TextFormField(
+    var _latField = TextFormField(
+      controller: _latController,
       decoration: InputDecoration(labelText: "Latitude"),
       validator: _validateLatitude,
       onSaved: (String value) {
         setState(() {
           _lat = double.parse(value);
+        });
+      },
+    );
+    var _lonField = TextFormField(
+      controller: _lonController,
+      decoration: InputDecoration(labelText: "Longitude"),
+      validator: _validateLongitude,
+      onSaved: (String value) {
+        setState(() {
+          _lon = double.parse(value);
         });
       },
     );
@@ -368,9 +521,8 @@ class _AddReminderFormState extends State<AddReminderForm> {
       },
     );
     FormField icon = FormField(
+      key: GlobalKey(),
       builder: (FormFieldState state) {
-        print(_icon);
-        print(_icons);
         return InputDecorator(
           decoration: InputDecoration(labelText: "Icon"),
           child: DropdownButton(
@@ -396,8 +548,9 @@ class _AddReminderFormState extends State<AddReminderForm> {
       child: ListView(
         children: [
           name,
-          lon,
-          lat,
+          _lonLat,
+          _latField,
+          _lonField,
           radius,
           icon,
           Padding(

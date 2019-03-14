@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:latlong/latlong.dart';
+import 'package:location/location.dart';
 import 'package:moc_app/example.dart';
 import 'package:moc_app/wearable.dart';
+import 'dart:async';
 
 import 'reminder.dart';
 import 'debug.dart';
@@ -85,28 +88,30 @@ class ReminderStorage {
 
 class LAReState extends State<LARe>{
   // the reminder list
-  List<Reminder> _reminders = [
-    new Reminder(
-      title: "Eier einkaufen",
-      lon: 8.385233,
-      lat: 48.993533,
-      radius: 2000.0,
-      icon: Icon(Icons.shopping_cart),
-    ),
-    new Reminder(
-      title: "Skript abholen",
-      lon: 8.408001,
-      lat: 49.012510,
-      radius: 150.0,
-      icon: Icon(Icons.library_books),
-    ),
-  ];
+  List<Reminder> _reminders = [];
 
   ReminderStorage storage = ReminderStorage();
 
   bool bluetoothAlertOpen = false;
 
   WearableConnector connector = WearableConnector();
+
+  // keeps track of the subscription of updateLocation to the location stream
+  StreamSubscription<Map<String, double>> _subscription;
+
+  // the current location
+  Location _location;
+
+  double _latitude = 0;
+  double _longitude = 0;
+
+  // the reminders which the user is in radius
+  List<Reminder> _reminderInRadius = [];
+
+  // whether or not the alert which states that the user is in a reminder radius is currently visible or not
+  bool alertIsVisible = false;
+
+
 
   // delete reminder from state and writes it to disk
   void deleteReminder(Reminder reminder) {
@@ -126,6 +131,69 @@ class LAReState extends State<LARe>{
 
   List<Reminder> get reminders => _reminders;
 
+  double get longitude => _longitude;
+  double get latitude => _latitude;
+
+  ///
+  /// Updates the location based on the current key-value-pairs output by Location class.
+  ///
+  void updateLocation(Map<String, double> currentLocation) {
+    if (!this.mounted) {
+      return;
+    }
+    // update variables
+    setState(() {
+      _longitude = currentLocation['longitude'];
+      _latitude = currentLocation['latitude'];
+      _reminderInRadius = [];
+    });
+
+    // check if user is in radius of any reminder, add all near reminders to _reminderInRadius
+    for (Reminder reminder in reminders) {
+      double distance = computeDistanceBetween(
+          reminder.toLatLng(), new LatLng(_latitude, _longitude));
+      if (distance < reminder.radius) {
+        _reminderInRadius.add(reminder);
+        debugPrint("in radius of " + reminder.toString());
+      }
+    }
+
+    // show dialog (only once, even if more than one reminders are near)
+    if (_reminderInRadius.isNotEmpty && !alertIsVisible) {
+      alertIsVisible = true;
+      startVibrate();
+      showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text("You are near"),
+            actions: <Widget>[
+              FlatButton(
+                  child: Text(
+                    "Got it, delete these reminders!",
+                    style: TextStyle(fontSize: 15.0),
+                  ),
+                  onPressed: () {
+                    // delete reminders
+                    for (Reminder reminder in _reminderInRadius) {
+                      deleteReminder(reminder);
+                    }
+                    alertIsVisible = false;
+                    stopVibrate();
+                    Navigator.pop(context);
+                  }),
+            ],
+            content: SingleChildScrollView(
+                child: Column(
+                  children: _reminderInRadius.map((Reminder r) {
+                    return Text(r.title);
+                  }).toList(),
+                )),
+          ));
+    }
+    print("lon: " + _longitude.toString());
+    print("lat: " + _latitude.toString());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -135,6 +203,29 @@ class LAReState extends State<LARe>{
         _reminders = r;
       });
     });
+
+    _location = Location();
+
+    // get first location immediatly, not just after change
+    _location.getLocation().then(updateLocation, onError: (e) {
+      debugPrint("error");
+    });
+
+    debugPrint("after get location");
+
+    // location stream changes trigger updateLocation
+    _subscription = _location.onLocationChanged().listen(
+      updateLocation,
+      onError: (e) {
+        debugPrint("erro stream");
+      },
+      onDone: () {
+        debugPrint("done");
+      },
+    );
+
+    debugPrint("after on loc changed");
+
   }
 
   void startVibrate() {
@@ -161,6 +252,7 @@ class LAReState extends State<LARe>{
   void dispose() {
     super.dispose();
     connector.cancelConnection();
+    _subscription.cancel();
   }
 
   @override
