@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong/latlong.dart';
 import 'package:location/location.dart';
-import 'package:moc_app/example.dart';
 import 'package:moc_app/wearable.dart';
 import 'dart:async';
 

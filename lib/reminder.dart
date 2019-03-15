@@ -5,9 +5,6 @@ import 'package:latlong/latlong.dart';
 // for map displaying
 import 'package:flutter_map/flutter_map.dart';
 
-// for GPS info
-import 'package:location/location.dart';
-
 ///
 /// Representation of the reminders.
 ///
@@ -219,46 +216,30 @@ void openAddReminderRoute(BuildContext context, LAReState state) {
               )));
 }
 
-class LonLatMapChooserRoute extends StatelessWidget {
-  final LAReState state;
-  final LatLngToVoidCallback callback;
-
-  LonLatMapChooserRoute({this.state, this.callback});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Choose the reminder location.")),
-      body: Container(
-        child: LonLatMapChooser(
-          state: state,
-          callback: callback,
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(onPressed: null),
-    );
-  }
-}
-
 typedef LatLngToVoidCallback = void Function(LatLng);
 
 class LonLatMapChooser extends StatefulWidget {
   final LAReState state;
   final LatLngToVoidCallback callback;
+  final DoubleWrapper radius;
 
-  LonLatMapChooser({this.state, this.callback});
+  LonLatMapChooser({this.state, this.callback, this.radius});
 
   @override
   State<StatefulWidget> createState() {
-    return LonLatMapChooserState(state: state, callback: callback);
+    debugPrint("creating LonLatMapChooserState with radius of " +
+        radius.value.toString());
+    return LonLatMapChooserState(
+        state: state, callback: callback, radius: radius);
   }
 }
 
 class LonLatMapChooserState extends State<LonLatMapChooser> {
   LAReState state;
   LatLngToVoidCallback callback;
+  DoubleWrapper radius;
 
-  LonLatMapChooserState({this.state, this.callback});
+  LonLatMapChooserState({this.state, this.callback, this.radius});
 
   double _currentLat;
   double _currentLon;
@@ -267,7 +248,6 @@ class LonLatMapChooserState extends State<LonLatMapChooser> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     _currentLon = state.longitude;
     _currentLat = state.latitude;
@@ -277,22 +257,20 @@ class LonLatMapChooserState extends State<LonLatMapChooser> {
     setState(() {
       _currentLat = newLatLng.latitude;
       _currentLon = newLatLng.longitude;
+      callback(LatLng(_currentLat, _currentLon));
     });
   }
 
   @override
-  void deactivate() {
-    // TODO: implement deactivate
-    debugPrint("deactivating");
-    super.deactivate();
-    callback(LatLng(_currentLat, _currentLon));
-  }
-
-  @override
   Widget build(BuildContext context) {
+    debugPrint(
+        "chooser map is rebuilding now, radius" + radius.value.toString());
+
+    LatLng currentLatLng = new LatLng(_currentLat, _currentLon);
+
     return FlutterMap(
       options: MapOptions(
-          center: LatLng(_currentLat, _currentLon),
+          center: currentLatLng,
           zoom: 13.0,
           onPositionChanged: (pos, b) {
             debugPrint("new position: " + pos.center.toString());
@@ -314,7 +292,7 @@ class LonLatMapChooserState extends State<LonLatMapChooser> {
         MarkerLayerOptions(
           markers: [
             Marker(
-              point: LatLng(_currentLat, _currentLon),
+              point: currentLatLng,
               width: 80.0,
               height: 80.0,
               builder: (ctx) => Container(
@@ -326,7 +304,14 @@ class LonLatMapChooserState extends State<LonLatMapChooser> {
                   ),
             ),
           ],
-        )
+        ),
+        CircleLayerOptions(circles: [
+          CircleMarker(
+              point: currentLatLng,
+              radius: radius.value,
+              color: Colors.blue.withOpacity(0.5),
+              useRadiusInMeter: true)
+        ])
       ],
     );
   }
@@ -340,14 +325,8 @@ class AddReminderRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Create a new reminder.")),
-      body: Container(
-        child: AddReminderForm(
-          state: state,
-        ),
-        padding: EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 0.0),
-      ),
+    return AddReminderForm(
+      state: state,
     );
   }
 }
@@ -364,6 +343,12 @@ class AddReminderForm extends StatefulWidget {
   }
 }
 
+class DoubleWrapper {
+  double value;
+
+  DoubleWrapper(this.value);
+}
+
 /// the actual form
 class _AddReminderFormState extends State<AddReminderForm> {
   _AddReminderFormState({this.state});
@@ -371,15 +356,13 @@ class _AddReminderFormState extends State<AddReminderForm> {
   final LAReState state;
   final _formKey = GlobalKey<FormState>();
 
-  FormField _lonLat;
-  TextEditingController _lonController = TextEditingController(text: "");
-  TextEditingController _latController = TextEditingController(text: "");
+  LonLatMapChooser lonLat;
 
   // current values of the form
   String _name = "";
   double _lat;
   double _lon;
-  double _radius = 0;
+  DoubleWrapper _radius;
   Icon _icon;
 
   // list of icons which can be used for reminders
@@ -395,61 +378,9 @@ class _AddReminderFormState extends State<AddReminderForm> {
   @override
   void initState() {
     super.initState();
+    debugPrint("initing add reminder form state");
+    _radius = DoubleWrapper(300);
     _icon = _icons[0]; // default icon = alarm clock
-  }
-
-  /// Checks if a String is a valid valid number (i.e. double).
-  bool _validNumber(String value) {
-    if (value == null) {
-      return false;
-    }
-    double number = double.tryParse(value);
-    if (number == null) {
-      return false;
-    }
-    return true;
-  }
-
-  ///
-  /// Checks whether or not a supplied string value is a valid number within the specified bounds.
-  /// Returns null if valid. Else returns error message.
-  String _validateWithinBounds(
-      String value, double lb, double ub, String name) {
-    if (_validNumber(value)) {
-      double lon = double.parse(value);
-      if (lon >= lb && lon <= ub) {
-        return null;
-      } else {
-        return "The number you entered is not a valid " + name + " .";
-      }
-    } else {
-      return "This is not a valid number.";
-    }
-  }
-
-  void _openMapRoute() {
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => LonLatMapChooserRoute(
-                  state: state,
-                  callback: setLatLng,
-                )));
-  }
-
-  /// Checks if the String is a valid longitude.
-  String _validateLongitude(String value) {
-    return _validateWithinBounds(value, -180, 180, "longitude");
-  }
-
-  /// Checks if the String is a valid latitude.
-  String _validateLatitude(String value) {
-    return _validateWithinBounds(value, -90, 90, "latitude");
-  }
-
-  /// Checks if the String is a valid radius.
-  String _validateRadius(String value) {
-    return _validateWithinBounds(value, 1.0, double.maxFinite, "radius");
   }
 
   /// Checks if the String is a valid name.
@@ -466,13 +397,13 @@ class _AddReminderFormState extends State<AddReminderForm> {
     setState(() {
       _lat = toSet.latitude;
       _lon = toSet.longitude;
-      _latController.text = toSet.latitude.toString();
-      _lonController.text = toSet.longitude.toString();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint(
+        "rebuilding add reminder form, radius:" + _radius.value.toString());
     TextFormField name = TextFormField(
       decoration: InputDecoration(labelText: "Name"),
       validator: _validateName,
@@ -482,100 +413,103 @@ class _AddReminderFormState extends State<AddReminderForm> {
         });
       },
     );
-    _lonLat = FormField(
-      key: GlobalKey(),
-      builder: (FormFieldState state) {
-        return FlatButton(
-          child: Text("choose on map"),
-          onPressed: () => _openMapRoute(),
-        );
-      },
+    debugPrint(
+        "creating MapChooser with radius of " + _radius.value.toString());
+    lonLat = LonLatMapChooser(
+      state: state,
+      callback: setLatLng,
+      radius: _radius,
     );
-    var _latField = TextFormField(
-      controller: _latController,
-      decoration: InputDecoration(labelText: "Latitude"),
-      validator: _validateLatitude,
-      onSaved: (String value) {
-        setState(() {
-          _lat = double.parse(value);
+    var radius = Slider(
+        label: "Radius (in m)",
+        value: _radius.value,
+        min: 15,
+        max: 5000,
+        onChanged: (double val) {
+          setState(() {
+            _radius.value = val;
+          });
         });
-      },
-    );
-    var _lonField = TextFormField(
-      controller: _lonController,
-      decoration: InputDecoration(labelText: "Longitude"),
-      validator: _validateLongitude,
-      onSaved: (String value) {
-        setState(() {
-          _lon = double.parse(value);
-        });
-      },
-    );
-    TextFormField radius = TextFormField(
-      decoration: InputDecoration(labelText: "Radius (in m)"),
-      validator: _validateRadius,
-      onSaved: (String value) {
-        setState(() {
-          _radius = double.parse(value);
-        });
-      },
-    );
-    FormField icon = FormField(
-      key: GlobalKey(),
-      builder: (FormFieldState state) {
-        return InputDecorator(
-          decoration: InputDecoration(labelText: "Icon"),
-          child: DropdownButton(
-            value: _icon,
-            items: _icons.map((Icon icon) {
-              return new DropdownMenuItem(child: icon, value: icon);
-            }).toList(),
-            onChanged: (Icon icon) {
-              setState(() {
-                debugPrint("setting icon, codepoint:" +
-                    icon.icon.codePoint.toString());
-                _icon = icon;
-              });
-            },
-          ),
-        );
-      },
-    );
 
-    return Form(
-      key: _formKey,
-      autovalidate: true,
-      child: ListView(
-        children: [
-          name,
-          _lonLat,
-          _latField,
-          _lonField,
-          radius,
-          icon,
-          Padding(
-            padding: EdgeInsets.all(1),
-            child: RaisedButton(
-              onPressed: () {
-                if (_formKey.currentState.validate()) {
-                  _formKey.currentState
-                      .save(); // save state, fills in the variables
-                  Reminder reminderToAdd = new Reminder(
-                      title: _name,
-                      lat: _lat,
-                      lon: _lon,
-                      radius: _radius,
-                      icon: _icon);
-                  debugPrint("adding " + reminderToAdd.toString());
-                  state.addReminder(reminderToAdd);
-                  Navigator.pop(context); // go back
-                }
-              },
-              child: Text("Create"),
+    var icon = DropdownButtonHideUnderline(
+        child: DropdownButton(
+      disabledHint: Text("Icon"),
+      hint: Text("hint"),
+      value: _icon,
+      items: _icons.map((Icon icon) {
+        return new DropdownMenuItem(child: icon, value: icon);
+      }).toList(),
+      onChanged: (Icon icon) {
+        setState(() {
+          debugPrint(
+              "setting icon, codepoint:" + icon.icon.codePoint.toString());
+          _icon = icon;
+        });
+      },
+    ));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Create a new reminder."),
+      ),
+      body: Column(
+        mainAxisSize: MainAxisSize.max,
+        children: <Widget>[
+          Container(
+            child: Form(
+              key: _formKey,
+              autovalidate: true,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  Column(children: <Widget>[
+                    Row(
+                      children: [
+                        Flexible(
+                            child: Container(
+                              width: 10000.0,
+                              child: name,
+                            )),
+                        Flexible(child: icon),
+                      ],
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    ),
+                    Row(children: <Widget>[Container(height: 15.0,)],),
+                    Row(children: [
+                      Text("Radius:"),
+                      Flexible(child: radius,fit:FlexFit.tight,)
+                    ]),
+                  ],mainAxisAlignment: MainAxisAlignment.spaceBetween,)
+
+                ],
+              ),
             ),
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+          ),
+          Flexible(
+            child: lonLat,
           )
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.red,
+        onPressed: () {
+          if (_formKey.currentState.validate()) {
+            _formKey.currentState.save(); // save state, fills in the variables
+            Reminder reminderToAdd = Reminder(
+                title: _name,
+                lat: _lat,
+                lon: _lon,
+                radius: _radius.value,
+                icon: _icon);
+            debugPrint("adding " + reminderToAdd.toString());
+            state.addReminder(reminderToAdd);
+            Navigator.pop(context); // go back
+          }
+        },
+        child: Icon(Icons.add),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

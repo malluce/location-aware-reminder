@@ -11,12 +11,6 @@ import 'package:flutter_map/plugin_api.dart';
 
 import 'package:latlong/latlong.dart';
 
-// for GPS info
-import 'package:location/location.dart';
-
-// for await, futures etc.
-import 'dart:async';
-
 import 'main.dart';
 import 'reminder.dart';
 
