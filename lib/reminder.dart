@@ -65,33 +65,56 @@ class Reminder {
 
   /// shows a summary of this reminder (an AlertDialog which shows all attributes)
   void showSummary(BuildContext context) {
-    debugPrint(icon.toString());
+    LatLng latLng = this.toLatLng();
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-            title: Row(
-              children: <Widget>[
-                Text(title),
-                icon,
-              ],
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-            ),
-            content: SingleChildScrollView(
-              child: ListBody(
-                children: <Widget>[
-                  Center(
-                    child: Text("(lon,lat)=(" +
-                        lon.toString() +
-                        "," +
-                        lat.toString() +
-                        ")"),
-                  ),
-                  Center(
-                    child: Text("radius=" + radius.toString() + "m"),
-                  ),
-                ],
+            title: Center(
+              child: Text(
+                title,
+                style: TextStyle(fontSize: 30.0),
               ),
+            ),
+            content: FlutterMap(
+              options: MapOptions(
+                center: latLng,
+                zoom: 13.0,
+              ),
+              layers: [
+                TileLayerOptions(
+                  urlTemplate: "https://api.tiles.mapbox.com/v4/"
+                      "{id}/{z}/{x}/{y}@2x.png?access_token={accessToken}",
+                  additionalOptions: {
+                    'accessToken':
+                        'pk.eyJ1IjoibWFsbHVjZSIsImEiOiJjanF6MmNqeTIwNmppNDJwbHprOGhuaXo1In0.K_3lEcDSPALLWJPO-on54g',
+                    'id': 'mapbox.streets',
+                  },
+                ),
+                MarkerLayerOptions(
+                  markers: [
+                    Marker(
+                      point: latLng,
+                      width: 80.0,
+                      height: 80.0,
+                      builder: (ctx) => Container(
+                            child: IconButton(
+                              iconSize: 40.0,
+                              icon: icon,
+                              onPressed: () => debugPrint("pressed!"),
+                            ),
+                          ),
+                    ),
+                  ],
+                ),
+                CircleLayerOptions(circles: [
+                  CircleMarker(
+                      point: latLng,
+                      radius: radius,
+                      color: Colors.blue.withOpacity(0.7),
+                      useRadiusInMeter: true)
+                ])
+              ],
             ),
             actions: <Widget>[
               FlatButton(
@@ -462,25 +485,36 @@ class _AddReminderFormState extends State<AddReminderForm> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  Column(children: <Widget>[
-                    Row(
-                      children: [
+                  Column(
+                    children: <Widget>[
+                      Row(
+                        children: [
+                          Flexible(
+                              child: Container(
+                            width: 10000.0,
+                            child: name,
+                          )),
+                          Flexible(child: icon),
+                        ],
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      ),
+                      Row(
+                        children: <Widget>[
+                          Container(
+                            height: 15.0,
+                          )
+                        ],
+                      ),
+                      Row(children: [
+                        Text("Radius:"),
                         Flexible(
-                            child: Container(
-                              width: 10000.0,
-                              child: name,
-                            )),
-                        Flexible(child: icon),
-                      ],
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    ),
-                    Row(children: <Widget>[Container(height: 15.0,)],),
-                    Row(children: [
-                      Text("Radius:"),
-                      Flexible(child: radius,fit:FlexFit.tight,)
-                    ]),
-                  ],mainAxisAlignment: MainAxisAlignment.spaceBetween,)
-
+                          child: radius,
+                          fit: FlexFit.tight,
+                        )
+                      ]),
+                    ],
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  )
                 ],
               ),
             ),
