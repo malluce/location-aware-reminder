@@ -79,7 +79,7 @@ class Reminder {
             content: FlutterMap(
               options: MapOptions(
                 center: latLng,
-                zoom: 13.0,
+                zoom: 15.0,
               ),
               layers: [
                 TileLayerOptions(
@@ -222,7 +222,6 @@ class AddReminderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint("addReminderButton: " + state.reminders.toString());
     return FloatingActionButton(
         onPressed: () => openAddReminderRoute(context, state),
         child: Icon(Icons.alarm_add));
@@ -250,8 +249,6 @@ class LonLatMapChooser extends StatefulWidget {
 
   @override
   State<StatefulWidget> createState() {
-    debugPrint("creating LonLatMapChooserState with radius of " +
-        radius.value.toString());
     return LonLatMapChooserState(
         state: state, callback: callback, radius: radius);
   }
@@ -286,9 +283,6 @@ class LonLatMapChooserState extends State<LonLatMapChooser> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
-        "chooser map is rebuilding now, radius" + radius.value.toString());
-
     LatLng currentLatLng = new LatLng(_currentLat, _currentLon);
 
     return FlutterMap(
@@ -368,7 +362,6 @@ class AddReminderForm extends StatefulWidget {
 
 class DoubleWrapper {
   double value;
-
   DoubleWrapper(this.value);
 }
 
@@ -395,7 +388,8 @@ class _AddReminderFormState extends State<AddReminderForm> {
     Icons.library_books,
     Icons.call,
     Icons.wc,
-    Icons.school
+    Icons.school,
+    Icons.attach_money
   ].map((f) => Icon(f)).toList();
 
   @override
@@ -403,6 +397,8 @@ class _AddReminderFormState extends State<AddReminderForm> {
     super.initState();
     debugPrint("initing add reminder form state");
     _radius = DoubleWrapper(300);
+    _lat = state.latitude;
+    _lon = state.longitude;
     _icon = _icons[0]; // default icon = alarm clock
   }
 
@@ -447,7 +443,7 @@ class _AddReminderFormState extends State<AddReminderForm> {
         label: "Radius (in m)",
         value: _radius.value,
         min: 15,
-        max: 5000,
+        max: 2000,
         onChanged: (double val) {
           setState(() {
             _radius.value = val;

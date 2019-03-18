@@ -93,7 +93,7 @@ class LAReState extends State<LARe>{
 
   bool bluetoothAlertOpen = false;
 
-  WearableConnector connector = WearableConnector();
+  WearableConnector connector;
 
   // keeps track of the subscription of updateLocation to the location stream
   StreamSubscription<Map<String, double>> _subscription;
@@ -109,8 +109,6 @@ class LAReState extends State<LARe>{
 
   // whether or not the alert which states that the user is in a reminder radius is currently visible or not
   bool alertIsVisible = false;
-
-
 
   // delete reminder from state and writes it to disk
   void deleteReminder(Reminder reminder) {
@@ -164,7 +162,7 @@ class LAReState extends State<LARe>{
       showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text("You are near"),
+            title: Text("In reminder proximity:"),
             actions: <Widget>[
               FlatButton(
                   child: Text(
@@ -202,6 +200,9 @@ class LAReState extends State<LARe>{
         _reminders = r;
       });
     });
+
+    // create wearable connector
+    connector = WearableConnector();
 
     _location = Location();
 
